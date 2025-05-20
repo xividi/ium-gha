@@ -48,6 +48,8 @@ jobs:
           path: |
             external/uae_cars_xgb_model.json
             external/sacred_runs/**
+            external/uae_cars_test_features.csv
+            external/uae_cars_test_true_prices.csv
 
   evaluate:
     name: "Evaluate model"
