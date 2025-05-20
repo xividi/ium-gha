@@ -13,8 +13,8 @@ on:
         default: '10'
 
 jobs:
-  build:
-    name: "Build model"
+  data_processing:
+    name: "Process Data"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout current repo
@@ -34,27 +34,66 @@ jobs:
         run: |
           cd external
           pip install -r requirements.txt
-          
+
       - name: Process data
         run: |
           cd external
           python data_norm.py
+
+      - name: Upload data artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: data-artifacts
+          path: |
+            external/data/*
+            external/price_minmax.json
+
+  build:
+    name: "Build model"
+    needs: data_processing
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current repo
+        uses: actions/checkout@v4
+
+      - name: Clone external repo
+        run: |
+          git clone https://git.wmi.amu.edu.pl/s475256/inzynieria-uczenia-maszynowego external
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          cd external
+          pip install -r requirements.txt
+
+      - name: Download data artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: data-artifacts
+          path: external
 
       - name: Train model
         run: |
           cd external
           python train.py with learning_rate=${{ github.event.inputs.learning_rate }} epochs=${{ github.event.inputs.epochs }}
 
-      - name: Upload model as artifact
+      - name: Upload model artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: model
-          path: external/uae_cars_xgb_model.json, external/sacred_runs/**
+          name: model-artifacts
+          path: |
+            external/uae_cars_xgb_model.json
+            external/sacred_runs/**
 
   evaluate:
     name: "Evaluate model"
+    needs: [data_processing, build]
     runs-on: ubuntu-latest
-    needs: build
     steps:
       - name: Checkout current repo
         uses: actions/checkout@v4
@@ -74,16 +113,17 @@ jobs:
           cd external
           pip install -r requirements.txt
 
-      - name: Download data
-        run: |
-          cd external
-          python data_norm.py
-
-      - name: Download model artifact
+      - name: Download data artifacts
         uses: actions/download-artifact@v4
         with:
-          name: model
-          path: external/uae_cars_xgb_model.json, external/sacred_runs/**
+          name: data-artifacts
+          path: external
+
+      - name: Download model artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: model-artifacts
+          path: external
 
       - name: Evaluate model
         run: |
@@ -93,5 +133,5 @@ jobs:
       - name: Upload evaluation results
         uses: actions/upload-artifact@v4
         with:
-          name: evaluation
-          path: external/uae_car_test_metrics.json
+          name: evaluation-results
+          path: external/uae_cars_test_metrics.json
