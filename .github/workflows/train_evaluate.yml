@@ -4,13 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       learning_rate:
-        description: 'Learning rate for the model'
+        description: 'Args for train.py'
         required: false
-        default: '0.001'
-      epochs:
-        description: 'Number of epochs for training'
-        required: false
-        default: '10'
+
 
 jobs:
   build:
@@ -43,7 +39,7 @@ jobs:
       - name: Train model
         run: |
           cd external
-          python train.py with learning_rate=${{ github.event.inputs.learning_rate }} epochs=${{ github.event.inputs.epochs }}
+          python train.py
 
       - name: Upload model as artifact
         uses: actions/upload-artifact@v4
