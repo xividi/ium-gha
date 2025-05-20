@@ -1,0 +1,97 @@
+name: "Build and evaluate model"
+
+on:
+  workflow_dispatch:
+    inputs:
+      learning_rate:
+        description: 'Learning rate for the model'
+        required: true
+        default: '0.001'
+      epochs:
+        description: 'Number of epochs for training'
+        required: true
+        default: '10'
+
+jobs:
+  build:
+    name: "Build model"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current repo
+        uses: actions/checkout@v4
+
+      - name: Clone external repo
+        run: |
+          git clone https://git.wmi.amu.edu.pl/s475256/inzynieria-uczenia-maszynowego external
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          cd external
+          pip install -r requirements.txt
+          
+      - name: Download data
+        run: |
+          cd external
+          python download_and_process.py
+
+      - name: Train model
+        run: |
+          cd external
+          python train_model.py with learning_rate=${{ github.event.inputs.learning_rate }} epochs=${{ github.event.inputs.epochs }}
+
+      - name: Upload model as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: model
+          path: external/.model/model.pth
+
+  evaluate:
+    name: "Evaluate model"
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout current repo
+        uses: actions/checkout@v4
+
+      - name: Clone external repo
+        run: |
+          git clone https://git.wmi.amu.edu.pl/s475256/inzynieria-uczenia-maszynowego external
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.3'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          cd external
+          pip install -r requirements.txt
+
+      - name: Download data
+        run: |
+          cd external
+          python download_and_process.py
+
+      - name: Download model artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: model
+          path: external/.model
+
+      - name: Evaluate model
+        run: |
+          cd external
+          python evaluate.py
+
+      - name: Upload evaluation results
+        uses: actions/upload-artifact@v4
+        with:
+          name: evaluation
+          path: external/metrics.csv
